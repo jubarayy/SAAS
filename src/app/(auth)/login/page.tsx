@@ -12,6 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InlineSpinner } from "@/components/shared/loading-spinner";
 import { Separator } from "@/components/ui/separator";
+import { AlertCircle } from "lucide-react";
+
+const ERROR_MESSAGES: Record<string, string> = {
+  link_expired: "This magic link has expired. Please request a new one.",
+  link_already_used: "This magic link has already been used. Please request a new one.",
+  invalid_link: "This magic link is invalid. Please request a new one.",
+  missing_token: "No token found in the link. Please request a new one.",
+  CredentialsSignin: "Invalid email or password.",
+};
 
 const schema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -25,7 +34,11 @@ function LoginForm() {
   const [magicLinkEmail, setMagicLinkEmail] = useState("");
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [magicLoading, setMagicLoading] = useState(false);
-  const next = searchParams.get("next") || "/dashboard";
+
+  const errorCode = searchParams.get("error") || "";
+  const errorMessage = errorCode ? (ERROR_MESSAGES[errorCode] ?? "An error occurred. Please try again.") : "";
+  const inviteToken = searchParams.get("invite");
+  const next = searchParams.get("next") || (inviteToken ? `/invite/${inviteToken}` : "/dashboard");
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -89,6 +102,13 @@ function LoginForm() {
       <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
       <p className="mt-1 text-sm text-muted-foreground">Welcome back to MarkupFlow</p>
 
+      {errorMessage && (
+        <div className="mt-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
@@ -128,7 +148,7 @@ function LoginForm() {
       </form>
 
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        Don't have an account?{" "}
+        Don&apos;t have an account?{" "}
         <Link href="/signup" className="font-medium text-primary hover:underline">
           Sign up free
         </Link>

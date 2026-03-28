@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import bcrypt from "bcryptjs";
-import { generateToken } from "@/lib/utils";
+import { encode } from "next-auth/jwt";
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
   if (!token) {
-    return NextResponse.json({ error: "Token required" }, { status: 400 });
+    return NextResponse.redirect(new URL("/login?error=missing_token", req.url));
   }
 
   const magicLink = await prisma.magicLink.findUnique({
@@ -15,15 +14,20 @@ export async function GET(req: NextRequest) {
   });
 
   if (!magicLink) {
-    return NextResponse.json({ error: "Invalid token" }, { status: 400 });
+    return NextResponse.redirect(new URL("/login?error=invalid_link", req.url));
   }
 
   if (magicLink.usedAt) {
-    return NextResponse.json({ error: "Link already used" }, { status: 400 });
+    return NextResponse.redirect(new URL("/login?error=link_already_used", req.url));
   }
 
   if (magicLink.expiresAt < new Date()) {
-    return NextResponse.json({ error: "Link expired" }, { status: 400 });
+    return NextResponse.redirect(new URL("/login?error=link_expired", req.url));
+  }
+
+  const user = magicLink.user;
+  if (!user) {
+    return NextResponse.redirect(new URL("/login?error=invalid_link", req.url));
   }
 
   // Mark as used
@@ -32,18 +36,40 @@ export async function GET(req: NextRequest) {
     data: { usedAt: new Date() },
   });
 
-  // Generate a temporary password for the credentials sign-in
-  // (Magic link auth exchanges to credentials session)
-  const tempPassword = generateToken(32);
-  const tempHash = await bcrypt.hash(tempPassword, 12);
+  // Ensure emailVerified
+  if (!user.emailVerified) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: new Date() },
+    });
+  }
 
-  await prisma.user.update({
-    where: { id: magicLink.userId! },
-    data: { passwordHash: tempHash, emailVerified: new Date() },
+  const isProd = process.env.NODE_ENV === "production";
+  const cookieName = isProd ? "__Secure-authjs.session-token" : "authjs.session-token";
+  const maxAge = 30 * 24 * 60 * 60; // 30 days
+
+  const sessionToken = await encode({
+    token: {
+      sub: user.id,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      picture: user.avatarUrl,
+      platformRole: user.platformRole,
+    },
+    secret: process.env.AUTH_SECRET!,
+    salt: cookieName,
+    maxAge,
   });
 
-  return NextResponse.json({
-    email: magicLink.email,
-    tempPassword,
+  const response = NextResponse.redirect(new URL("/dashboard", req.url));
+  response.cookies.set(cookieName, sessionToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProd,
+    path: "/",
+    maxAge,
   });
+
+  return response;
 }
