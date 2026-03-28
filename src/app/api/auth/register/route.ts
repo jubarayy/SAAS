@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     }
     console.error("Register error:", error);
-    return NextResponse.json({ error: "Failed to create account" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
