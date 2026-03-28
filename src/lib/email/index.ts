@@ -1,12 +1,14 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY || "re_placeholder");
+}
 const FROM = process.env.EMAIL_FROM || "MarkupFlow <noreply@markupflow.com>";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export async function sendMagicLink(email: string, token: string) {
   const url = `${APP_URL}/magic-link?token=${token}`;
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to: email,
     subject: "Your MarkupFlow login link",
@@ -29,7 +31,7 @@ export async function sendInvitation(
   token: string
 ) {
   const url = `${APP_URL}/invite/${token}`;
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to: email,
     subject: `${inviterName} invited you to ${workspaceName} on MarkupFlow`,
@@ -51,7 +53,7 @@ export async function sendReviewRequestEmail(
   reviewUrl: string,
   message?: string
 ) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to: email,
     subject: `Your review is ready: ${projectName}`,
@@ -75,7 +77,7 @@ export async function sendFeedbackNotification(
   clientName: string,
   projectUrl: string
 ) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to: email,
     subject: `New feedback on ${projectName}`,
@@ -97,7 +99,7 @@ export async function sendApprovalNotification(
   clientName: string,
   projectUrl: string
 ) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to: email,
     subject: `${projectName} approved by ${clientName}`,
