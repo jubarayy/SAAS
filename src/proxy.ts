@@ -3,14 +3,14 @@ import { NextResponse } from "next/server";
 
 const PUBLIC_PATHS = ["/", "/login", "/signup", "/magic-link", "/pricing", "/review"];
 
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthenticated = !!req.auth?.user;
 
   // Allow review portal without auth
   if (pathname.startsWith("/review/")) return NextResponse.next();
 
-  // Allow invite accept without auth  
+  // Allow invite accept without auth
   if (pathname.startsWith("/invite/")) return NextResponse.next();
 
   // Allow public API routes
